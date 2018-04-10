@@ -1,68 +1,248 @@
-def pairs(x,y):#statistic pairs with different distance,x is x-axis,y is y-axis
+# because there are two different kind of correlation functions(differential correlation function and cumulative correlation function) and to the counts the pairs in data catalog,random catalog and between them,I define four function(they are similiar) to do this
+# (1) d_pairs(x,y,deta):counts pairs in data catalog for differential correlation function
+# (2) r_pairs(x,y,deta,mi,ma):counts pairs in random catalog for differential correlation function
+# (3) c_pairs(x,y,n):counts pairs in data catalog for cumulative correlation function
+# (4) cr_pairs(x,y,n,mi,ma):counts pairs in random catalog for cumulative correlation function
+#they all output two results,one is num which is a list to store counts in different distance bin the other is distance to store distance 
+# the d_pairs and r_pairs is not so effient maybe we can first sort the distance and divide it in different bin and use the mean of the distance in the same bin as its distance 
+
+
+def d_pairs(x,y,deta):#statistic pairs with different distance,x y are coordinate and deta is width of bin
+    #we caculate distance of all possible pairs and put them in each bin 
+    import numpy
+    coordinate=[]
+    for i in range(len(x)):
+        o=[x[i],y[i]]
+        coordinate.append(o)
+    distance_database=[]#this list use to store all distance
+    while len(coordinate)>1:#in this loop we firstly caclulate the distance between the first point with the rest and then pop the first out so that the original second become the first until there is one point in coordinate
+        x0=coordinate[0][0]
+        y0=coordinate[0][1]
+        for i in range(1,len(coordinate)):
+            x=coordinate[i][0]
+            y=coordinate[i][1]
+            l=(((x0-x)**2)+((y0-y)**2))**0.5
+            distance_database.append(l)
+        coordinate.pop(0)#statistic all distance 
+    ma=max(distance_database)
+    mi=min(distance_database)
+    num=numpy.zeros(int((ma-mi)/deta)+1)
+    distance=numpy.zeros(int((ma-mi)/deta)+1)#find the maximal and minimal distance and we can define the distance bin
+    for i in distance_database:
+        p=mi+deta
+        s=mi
+        k=0
+        while p<=ma+deta:
+            if i>=s and i<p:
+                num[k]=num[k]+1
+                distance[k]=distance[k]+i
+                break
+            else:
+                p=p+deta#statistic number of distance in different range
+                s=s+deta
+                k=k+1
+    for i in range(len(num)):
+        if num[i]!=0:
+            distance[i]=distance[i]/num[i]
+        else:
+            distance[i]=mi+(i+0.5)*deta
+    return num,distance,mi,ma
+
+def r_pairs(x,y,deta,mi,ma):#statistic pairs with different distance,x is x-axis,y is y-axis
+    #r_pairs is the same with d_pairs
     import numpy
     coordinate=[]
     for i in range(len(x)):
         o=[x[i],y[i]]
         coordinate.append(o)
     distance_database=[]
-
+    
     while len(coordinate)>1:
+        x0=coordinate[0][0]
+        y0=coordinate[0][1]
         for i in range(1,len(coordinate)):
-            x0=coordinate[0][0]
-            y0=coordinate[0][0]
             x=coordinate[i][0]
-            y=coordinate[i][0]
+            y=coordinate[i][1]
             l=(((x0-x)**2)+((y0-y)**2))**0.5
             distance_database.append(l)
         coordinate.pop(0)#statistic all distance 
-    ma=max(distance_database)
-    mi=min(distance_database)
-    deta=float((ma-mi)/20)
-    num=numpy.zeros(20)
+    num=numpy.zeros(int((ma-mi)/deta)+1)
+    distance=numpy.zeros(int((ma-mi)/deta)+1)
     for i in distance_database:
-        p=mi
+        p=mi+deta
+        s=mi
         k=0
-        while p<(ma-deta):
-            if i>=p and i<p+deta:
+        while p<=ma+deta:
+            if i>=s and i<p:
                 num[k]=num[k]+1
-            p=p+deta#statistic number of distance in different range
-            k=k+1
-    
-    distance=[]
-    for i in range(20):
-        distance.append(mi+deta*i)
-
+                distance[k]=distance[k]+i
+                break
+            else:
+                p=p+deta#statistic number of distance in different range
+                s=s+deta
+                k=k+1
+    for i in range(len(num)):
+        if num[i]!=0:
+            distance[i]=distance[i]/num[i]
+        else:
+            distance[i]=mi+(i+0.5)*deta
     return num,distance
 
-if __name__=='__main__':
-    #x=[1,2,3,4,5,6,7,8,9,10]
-    #y=[11,12,13,14,15,16,17,18,19,20]
-    #print pairs(x,y)
+
+def c_pairs(x,y,n):#x,y is coordinate and n is the number of bin which is the same as deta above 
+    #c_pairs firstly caculate all distance and then counts points who are within the distance 
+    #I sort the distance at first and then compare the distance in distance_database with the distance in distance _a 
     import numpy
+    coordinate=[]
+    for i in range(len(x)):
+        o=[x[i],y[i]]
+        coordinate.append(o)
+    distance_database=[]
+    while len(coordinate)>1:
+        x0=coordinate[0][0]
+        y0=coordinate[0][1]
+        for i in range(1,len(coordinate)):
+            x=coordinate[i][0]
+            y=coordinate[i][1]
+            l=(((x0-x)**2)+((y0-y)**2))**0.5
+            distance_database.append(l)
+        coordinate.pop(0)#statistic all distance 
+    distance_database.sort()#sort all distance and then compare them with distance bin defined
+    ma=max(distance_database)
+    mi=min(distance_database)
+    deta=(ma-mi)/n
+    distance_a=numpy.arange(mi,ma+2*deta,deta)
+    distance_iter=iter(distance_a)#use iter to generate iteration 
+    num=[];l0=distance_iter.next();distance=[];i=0;k=0#i is the subscript of distance_database,l0 is the upper limit of each bin,k is used to counts the points within l0
+    while i<=len(distance_database)-1:#in this loop,we first compare the elements in distance_database with the value in distance_a,if the former is smaller than latter then 
+        if (i!=len(distance_database) and i!=len(distance_database)-1 and distance_database[i]<=l0 and distance_database[i+1]>l0) or i==len(distance_database)-1:
+            num.append(k+1)
+            distance.append(l0)
+        if distance_database[i]<=l0:
+            k=k+1
+            i=i+1
+        else:
+            try:
+                l0=distance_iter.next()
+            except StopIteration:
+                break
+            else:
+                continue
+    return num,distance,mi,ma
+
+def cr_pairs(x,y,n,mi,ma):
+    #cr_pairs is the same with c_pairs
+    import numpy
+    coordinate=[]
+    for i in range(len(x)):
+        o=[x[i],y[i]]
+        coordinate.append(o)
+    distance_database=[]
+    while len(coordinate)>1:
+        x0=coordinate[0][0]
+        y0=coordinate[0][1]
+        for i in range(1,len(coordinate)):
+            x=coordinate[i][0]
+            y=coordinate[i][1]
+            l=(((x0-x)**2)+((y0-y)**2))**0.5
+            distance_database.append(l)
+        coordinate.pop(0)#statistic all distance 
+    distance_database.sort()
+    ini=distance_database[0]
+    en=distance_database[-1]
+    deta=(ma-mi)/n
+    distance_a=numpy.arange(mi,ma+2*deta,deta)
+    distance_iter=iter(distance_a)
+    num=[];l0=distance_iter.next();distance=[];i=0;k=0
+    while i<=len(distance_database)-1:
+        if (i!=len(distance_database) and i!=len(distance_database)-1 and distance_database[i]<=l0 and distance_database[i+1]>l0) or i==len(distance_database)-1:
+            num.append(k+1)
+            distance.append(l0)
+        if distance_database[i]<=l0:
+            k=k+1
+            i=i+1
+        else:
+            try:
+                l0=distance_iter.next()
+            except StopIteration:
+                break
+            else:
+                continue
+    return num,distance,ini,en
+if __name__=='__main__':
     import matplotlib.pyplot as plt
-    x_g=10*numpy.random.randn(1,1000)
-    y_g=10*numpy.random.randn(1,1000)
-    x_u=10*numpy.random.rand(1,1000)
-    y_u=10*numpy.random.rand(1,1000)#generate coodinate
-    #print x_g[0],y_g[0],x_u[0],y_u[0]
-    [g_pairs_num,g_distance]=pairs(x_g[0],y_g[0])
-    [u_pairs_num,u_distance]=pairs(x_u[0],y_u[0])
-    #print len(g_pair_num),len(g_distance)
+    x_ini=range(4)
+    y_ini=range(4)
+    x=[]
+    y=[]
+    for i in x_ini:
+        for j in y_ini:
+            x.append(i)
+            y.append(j)
+    [num,distance,mi,ma]=d_pairs(x,y,0.1)
+    [num2,distance2,ma,mi]=c_pairs(x,y,500)
+    for i in range(len(num)):
+        if num[i]>0:
+            print num[i]
+            print distance[i]
+    print 'num:'
+    print num
+    print 'distance:'
+    print distance
+    print 'num2='
+    print num2
+    print 'distance2='
+    print distance2
+    print ma,mi
     plt.figure(1)
-    plt.title('normal distribution')
-    plt.scatter(x_g,y_g,marker='.')
-    plt.figure(2)
-    plt.title('uniform dsitribution')
-    plt.scatter(x_u,y_u,marker='.')
-    plt.figure('normal distribution')
-    plt.scatter(g_distance,g_pairs_num,marker='x')
-    plt.xlabel('distance')
-    plt.ylabel('number')
-    plt.title('normal distribution')
+    plt.scatter(x,y,marker='o',color='r')
     plt.show()
-    plt.figure('uniform distribution')
-    plt.scatter(u_distance,u_pairs_num)
-    plt.xlabel('distance')
-    plt.ylabel('number')
-    plt.title('uniform dsitribution')
-    plt.show()
+    #this is use to test the functions defined above
+
+
+
+## #  import numpy
+##   import matplotlib.pyplot as plt 
+#    x_g=10*numpy.random.randn(1,1000)
+#    y_g=10*numpy.random.randn(1,1000)
+#    x_u=numpy.random.uniform(low=min(x_g[0]),high=max(x_g[0]),size=(1,100))
+#    y_u=numpy.random.uniform(low=min(y_g[0]),high=max(y_g[0]),size=(1,100))#generate #coordinate
+#    x=[]
+#    y=[]
+#    x.extend(x_g[0]);x.extend(x_u[0])
+#    y.extend(y_g[0]);y.extend(y_u[0])
+#    [g_pairs_num,g_distance,mi,ma]=d_pairs(x_g[0],y_g[0],0.05)
+#    [t_pairs_num,t_distance]=r_pairs(x,y,0.05,mi,ma)
+#    [u_pairs_num,u_distance]=r_pairs(x_u[0],y_u[0],0.05,mi,ma)
+#    pairs_num=[t_pairs_num[i]-g_pairs_num[i]-u_pairs_num[i] for i in range(len(g_pairs_num))]
+#    oo=[]
+#    print t_distance
+#    print g_distance
+#    print u_distance
+#    print '\n'
+#    for i in [g_pairs_num,u_pairs_num,pairs_num,t_pairs_num]:
+#        s=float(sum(i))
+#        k=[float(x)/s for x in i]
+#        oo.append(k)
+#    [g_pairs_num,u_pairs_num,pairs_num,t_pairs_num]=oo
+#    w=[(g_pairs_num[i]+u_pairs_num[i]-2*pairs_num[i])/u_pairs_num[i] for i in range(len(g_pairs_num)-1)]
+#    f_distance=[(g_distance[i]+u_distance[i]+t_distance[i])/float(3) for i in range(len(t_distance)-1)]
+#    print w
+    #print 'g_pairs_num'
+    #print g_pairs_num
+    #print 'u_pairs_num'
+    #print u_pairs_num
+
+#     plt.figure(1)
+#    plt.scatter(x_g,y_g,marker='x',color='r')
+#    plt.scatter(x_u,y_u,marker='.',color='b')
+#    plt.show()
+#    plt.figure(2)
+#    plt.scatter(g_distance,g_pairs_num,marker='x',color='r')
+#    plt.scatter(u_distance,u_pairs_num,marker='.',color='b')
+ # plt.scatter(t_distance,pairs_num,marker='o',color='g')
+   #plt.scatter(t_distance,t_pairs_num,marker='*',color='y')
+#    plt.show()
+#    plt.figure(3)
+#    plt.scatter(f_distance,w,marker='x',color='r')
+#    plt.show()
