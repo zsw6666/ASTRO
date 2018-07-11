@@ -1,9 +1,49 @@
 import os
+import pdb
 import numpy as np
 from astropy import units as u,constants as const
 from astropy.cosmology import FlatLambdaCDM as FlatCDM
 
 
+def d_pairs(x,y):
+    '''
+    Thsis function is used to obtain 2-d two-point correlation function
+    (x,y) is the coordinate of each galaxy
+    '''
+    
+    
+    #this part is used to calculate distance between every galaxy pairs in data
+    x,y=np.array(x),np.array(y)
+    pointset=np.c_[x,y]
+    distanceset=np.array([])
+    while len(pointset)>1:
+        for i in range(1,len(pointset)):
+            l=np.linalg.norm(pointset[0]-pointset[i])
+            distanceset=np.append(distanceset,l)
+        pointset=np.delete(pointset,0,0)
+    
+    #this part is used to statistic counts in each bin
+    counts,bins=np.histogram(distanceset,bins='auto')
+    return counts,bins
+
+
+def r_pairs(x,y,bins):
+    '''
+    This function is the same with d_pairs but need one more parameter
+    bins: we need this parameter because we must calculate dd pairs,rr_pairs and dr_pairs in the same bin
+    '''
+    x,y=np.array(x),np.array(y)
+    pointset=np.c_[x,y]
+    distanceset=np.array([])
+    while len(pointset)>1:
+        for i in range(1,len(pointset)):
+            l=np.linalg.norm(pointset[0]-pointset[i])
+            distanceset=np.append(distanceset,l)
+        pointset=np.delete(pointset,0,0)
+    
+    counts,bins=np.histogram(distanceset,bins)
+    
+    return counts,bins
 
 
 def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
@@ -35,7 +75,7 @@ def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
     
 
     #calculate the luminosity of each galaxy,the equation you can found here:
-    #
+    #https://github.com/zsw6666/test/blob/master/Equation_F_LF.jpg
     F_Lya=(3631*u.Jy)*deta_v_NB*((10**(m_NB/-2.5))-(10**(m_g/-2.5)))
     L_Lya=(F_Lya*4*np.pi*dl**2).to(u.erg/u.s)
 
@@ -65,27 +105,27 @@ def SCF(L,Le,apha,phie):
 
 
 #Example
-if __name__=='__main__':
-    import pdb
-    import matplotlib.pyplot as plt
-    L_lya,n,err=LF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LAE-Mab5.txt',2.255,0.027,0.90915,0.009155,0.0095589,3955,32.7)
-    index=[len(L_lya)-1,len(L_lya)-2]
-    L_lya=np.delete(L_lya,index)
-    n=np.delete(n,index)
-    err=np.delete(err,index)
-    L_fit=np.arange(min(L_lya),max(L_lya)+0.5*max(L_lya),(max(L_lya)-min(L_lya))/500.0)
-    Le=10**42.33;apha=-1.65;phie=10**(-2.86)
-    N_fit=[SCF(L,Le,apha,phie) for L in L_fit]
-    #pdb.set_trace()
-    plt.figure(1)
-    ax=plt.gca()
-    ax.set_yscale('log')
-    ax.set_xscale('log')
-    plt.title('Luminosity Function')
-    plt.xlabel('Luminosity erg/s')
-    plt.ylabel('n Mpc-3')
-    plt.xlim(min(L_fit),max(L_fit))
-    plt.ylim(min(N_fit),max(N_fit))
-    plt.errorbar(L_lya,n,fmt='o',yerr=err)
-    plt.plot(L_fit,N_fit,c='r')
-    plt.show()
+#if __name__=='__main__':
+#    import pdb
+#    import matplotlib.pyplot as plt
+#    L_lya,n,err=LF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LAE-Mab5.txt',2.255,0.027,0.90915,0.009155,0.0095589,3955,32.7)
+#    index=[len(L_lya)-1,len(L_lya)-2]
+#    L_lya=np.delete(L_lya,index)
+#    n=np.delete(n,index)
+#    err=np.delete(err,index)
+#    L_fit=np.arange(min(L_lya),max(L_lya)+0.5*max(L_lya),(max(L_lya)-min(L_lya))/500.0)
+#    Le=10**42.33;apha=-1.65;phie=10**(-2.86)
+#    N_fit=[SCF(L,Le,apha,phie) for L in L_fit]
+#    #pdb.set_trace()
+#    plt.figure(1)
+#    ax=plt.gca()
+#    ax.set_yscale('log')
+#    ax.set_xscale('log')
+#    plt.title('Luminosity Function')
+#    plt.xlabel('Luminosity erg/s')
+#    plt.ylabel('n Mpc-3')
+#    plt.xlim(min(L_fit),max(L_fit))
+#    plt.ylim(min(N_fit),max(N_fit))
+#    plt.errorbar(L_lya,n,fmt='o',yerr=err)
+#    plt.plot(L_fit,N_fit,c='r')
+#    plt.show()
