@@ -1,4 +1,0 @@
-# test
-test.py里面是用来计算点对数量的函数
-read_catalog.py是读取catalog的数据并创建random catalog并计算w(theta)和r0,利用的是differential correlation function
-read_catalog.py是读取catalog的数据并创建random catalog并计算w(theta)和r0,利用的是cumulative correlation function
