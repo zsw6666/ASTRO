@@ -116,7 +116,6 @@ if __name__=='__main__':
     L_fit=np.arange(min(L_lya),max(L_lya)+0.5*max(L_lya),(max(L_lya)-min(L_lya))/500.0)
     Le=10**42.33;apha=-1.65;phie=10**(-2.86)
     N_fit=SCF(L_fit,Le,apha,phie)*deta_L
-    #pdb.set_trace()
     plt.figure(1)
     ax=plt.gca()
     ax.set_yscale('log')
