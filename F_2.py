@@ -64,7 +64,7 @@ def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
 
 
     #define some cosntant and convert some parameter to proper units
-    cosmo=FlatCDM(H0=70*u.km/u.s/u.Mpc,Tcmb0=2.725*u.K,Om0=0.3)
+    cosmo=FlatCDM(H0=68*u.km/u.s/u.Mpc,Tcmb0=2.725*u.K,Om0=0.3)
     c=const.c;dl=cosmo.luminosity_distance(z);dl2=cosmo.luminosity_distance(z+deta_z);lamda_NB=lamda_NB*u.AA;deta_lamda_NB=deta_lamda_NB*u.AA;sigma=(sigma*u.deg).to(u.rad);deta_apha=(deta_apha*u.deg).to(u.rad);deta_sigma=(deta_sigma*u.deg).to(u.rad);deta_DL=dl2-dl
     deta_v_NB=(c/lamda_NB**2)*deta_lamda_NB
     
@@ -78,20 +78,20 @@ def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
     #https://github.com/zsw6666/test/blob/master/Equation_F_LF.jpg
     F_Lya=(3631*u.Jy)*deta_v_NB*((10**(m_NB/-2.5))-(10**(m_g/-2.5)))
     L_Lya=(F_Lya*4*np.pi*dl**2).to(u.erg/u.s)
-
+    
     
     #statistic counts in each bin and convert the counts to number density
-    [counts,bins]=np.histogram(L_Lya,bins='auto')
+    [counts,bins]=np.histogram(L_Lya,bins='auto') 
     Vmax=(dl**2)*np.cos(sigma)*deta_apha*deta_sigma*deta_DL
-    counts=counts/Vmax;
+    deta_L=bins[1]-bins[0]
+    counts=counts/Vmax 
     bins=np.delete(bins,np.append(np.where(counts==0.),0))*(u.erg/u.s)
     counts=np.delete(counts,np.where(counts==0.))
+
     
+    errorbar=np.sqrt(counts)*(1/np.sqrt(Vmax))
     
-    #calclulate the errorbar
-    errorbar=(1/np.sqrt(Vmax))*np.sqrt(counts)
-    
-    return bins.value,counts.value,errorbar.value
+    return bins.value,counts.value,errorbar.value,deta_L
 
 def SCF(L,Le,apha,phie):
     '''
@@ -100,32 +100,32 @@ def SCF(L,Le,apha,phie):
     L: the variable
     '''
 
-    phi=phie*((L/Le)**apha)*np.exp(-L/Le)
+    phi=(1/Le)*phie*((L/Le)**apha)*np.exp(-L/Le)
     return phi
 
 
 #Example
-#if __name__=='__main__':
-#    import pdb
-#    import matplotlib.pyplot as plt
-#    L_lya,n,err=LF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LAE-Mab5.txt',2.255,0.027,0.90915,0.009155,0.0095589,3955,32.7)
-#    index=[len(L_lya)-1,len(L_lya)-2]
-#    L_lya=np.delete(L_lya,index)
-#    n=np.delete(n,index)
-#    err=np.delete(err,index)
-#    L_fit=np.arange(min(L_lya),max(L_lya)+0.5*max(L_lya),(max(L_lya)-min(L_lya))/500.0)
-#    Le=10**42.33;apha=-1.65;phie=10**(-2.86)
-#    N_fit=[SCF(L,Le,apha,phie) for L in L_fit]
-#    #pdb.set_trace()
-#    plt.figure(1)
-#    ax=plt.gca()
-#    ax.set_yscale('log')
-#    ax.set_xscale('log')
-#    plt.title('Luminosity Function')
-#    plt.xlabel('Luminosity erg/s')
-#    plt.ylabel('n Mpc-3')
-#    plt.xlim(min(L_fit),max(L_fit))
-#    plt.ylim(min(N_fit),max(N_fit))
-#    plt.errorbar(L_lya,n,fmt='o',yerr=err)
-#    plt.plot(L_fit,N_fit,c='r')
-#    plt.show()
+if __name__=='__main__':
+    import pdb
+    import matplotlib.pyplot as plt
+    L_lya,n,err,deta_L=LF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LAE-Mab5.txt',2.255,0.027,0.90915,0.009155,0.0095589,3955,32.7)
+    index=[len(L_lya)-1,len(L_lya)-2] 
+    L_lya=np.delete(L_lya,index)
+    n=np.delete(n,index)
+    err=np.delete(err,index) 
+    L_fit=np.arange(min(L_lya),max(L_lya)+0.5*max(L_lya),(max(L_lya)-min(L_lya))/500.0)
+    Le=10**42.33;apha=-1.65;phie=10**(-2.86)
+    N_fit=SCF(L_fit,Le,apha,phie)*deta_L
+    #pdb.set_trace()
+    plt.figure(1)
+    ax=plt.gca()
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    plt.title('Luminosity Function')
+    plt.xlabel('Luminosity erg/s')
+    plt.ylabel('n Mpc-3')
+    plt.xlim(min(L_lya),max(L_lya))
+    plt.ylim(min(N_fit),max(n))
+    plt.errorbar(L_lya,n,fmt='o',yerr=err)
+    plt.plot(L_fit,N_fit,c='r')
+    plt.show()
