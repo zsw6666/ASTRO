@@ -48,7 +48,7 @@ def r_pairs(x,y,bins):
 
 def ACF(files,z0):
     '''
-    This script is used to do galaxy clustering analysis by angualr correlation function
+    This function is used to do galaxy clustering analysis by angualr correlation function
     and estimate mass of host halo through comparing bias we calculate and bias from simulation
     '''
     import test_1
