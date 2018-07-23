@@ -137,9 +137,11 @@ def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
 
     #define some cosntant and convert some parameter to proper units
     cosmo=FlatCDM(H0=68*u.km/u.s/u.Mpc,Tcmb0=2.725*u.K,Om0=0.3)
-    c=const.c;dl=cosmo.luminosity_distance(z);dl1=cosmo.comoving_distance(z);dl2=cosmo.comoving_distance(z+deta_z);dl_a=cosmo.angular_diameter_distance(z);lamda_NB=lamda_NB*u.AA;deta_lamda_NB=deta_lamda_NB*u.AA;sigma=(sigma*u.deg).to(u.rad);deta_apha=(deta_apha*u.deg).to(u.rad);deta_sigma=(deta_sigma*u.deg).to(u.rad);deta_DL_c=dl2-dl1
+    c=const.c;dl=cosmo.luminosity_distance(z);dl1=cosmo.comoving_distance(z);dl2=cosmo.comoving_distance(z+deta_z)
+    dl_a=cosmo.angular_diameter_distance(z);lamda_NB=lamda_NB*u.AA;deta_lamda_NB=deta_lamda_NB*u.AA;sigma=(sigma*u.deg).to(u.rad)
+    deta_apha=(deta_apha*u.deg).to(u.rad);deta_sigma=(deta_sigma*u.deg).to(u.rad);deta_DL_c=dl2-dl1
     deta_v_NB=(c/lamda_NB**2)*deta_lamda_NB
-    pdb.set_trace()
+    
     
     #read the file which contains the magnitude data
     data=np.genfromtxt(file_name,delimiter=',')
