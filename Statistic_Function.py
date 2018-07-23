@@ -20,7 +20,7 @@ def d_pairs(x,y):
         for i in range(1,len(pointset)):
             l=np.linalg.norm(pointset[0]-pointset[i])
             distanceset=np.append(distanceset,l)
-        pointset=np.delete(pointset,0,0)
+        pointset=np.delete(pointset,0,0) 
     
     #this part is used to statistic counts in each bin
     counts,bins=np.histogram(distanceset,bins='auto')
@@ -48,7 +48,7 @@ def r_pairs(x,y,bins):
 
 def ACF(files,z0):
     '''
-    This function is used to do galaxy clustering analysis by angualr correlation function
+    This script is used to do galaxy clustering analysis by angualr correlation function
     and estimate mass of host halo through comparing bias we calculate and bias from simulation
     '''
     import test_1
@@ -59,7 +59,7 @@ def ACF(files,z0):
     
     #read data
     ra_g,dec_g=np.hsplit(np.genfromtxt(files,delimiter=','),2)
-    ra_r,dec_r=np.random.uniform(low=np.min(ra_g),high=np.max(ra_g),size=(1,40*len(ra_g)))[0],np.random.uniform(low=np.min(dec_g),high=np.max(dec_g),size=(1,40*len(dec_g)))[0]
+    ra_r,dec_r=np.random.uniform(low=np.min(ra_g),high=np.max(ra_g),size=(1,10*len(ra_g)))[0],np.random.uniform(low=np.min(dec_g),high=np.max(dec_g),size=(1,10*len(dec_g)))[0]
     ra_r,dec_r=ra_r.reshape(len(ra_r),1),dec_r.reshape(len(dec_r),1)
     ra_gr=np.vstack((ra_g,ra_r));dec_gr=np.vstack((dec_g,dec_r))
     
@@ -115,7 +115,7 @@ def ACF(files,z0):
     halo_mass=np.mean(halo.m[(halo.bias>b-0.01*b)&(halo.bias<b+0.01*b)])
     
 
-    return halo_mass,b
+    return halo_mass,b,r0
 
 
 def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
@@ -137,9 +137,9 @@ def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
 
     #define some cosntant and convert some parameter to proper units
     cosmo=FlatCDM(H0=68*u.km/u.s/u.Mpc,Tcmb0=2.725*u.K,Om0=0.3)
-    c=const.c;dl=cosmo.luminosity_distance(z);dl2=cosmo.luminosity_distance(z+deta_z);lamda_NB=lamda_NB*u.AA;deta_lamda_NB=deta_lamda_NB*u.AA;sigma=(sigma*u.deg).to(u.rad);deta_apha=(deta_apha*u.deg).to(u.rad);deta_sigma=(deta_sigma*u.deg).to(u.rad);deta_DL=dl2-dl
+    c=const.c;dl=cosmo.luminosity_distance(z);dl1=cosmo.comoving_distance(z);dl2=cosmo.comoving_distance(z+deta_z);dl_a=cosmo.angular_diameter_distance(z);lamda_NB=lamda_NB*u.AA;deta_lamda_NB=deta_lamda_NB*u.AA;sigma=(sigma*u.deg).to(u.rad);deta_apha=(deta_apha*u.deg).to(u.rad);deta_sigma=(deta_sigma*u.deg).to(u.rad);deta_DL_c=dl2-dl1
     deta_v_NB=(c/lamda_NB**2)*deta_lamda_NB
-    
+    pdb.set_trace()
     
     #read the file which contains the magnitude data
     data=np.genfromtxt(file_name,delimiter=',')
@@ -154,7 +154,7 @@ def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
     
     #statistic counts in each bin and convert the counts to number density
     [counts,bins]=np.histogram(L_Lya,bins='auto') 
-    Vmax=(dl**2)*np.cos(sigma)*deta_apha*deta_sigma*deta_DL
+    Vmax=(dl_a**2)*np.cos(sigma)*deta_apha*deta_sigma*deta_DL_c
     deta_L=bins[1]-bins[0]
     counts=counts/Vmax 
     bins=np.delete(bins,np.append(np.where(counts==0.),0))*(u.erg/u.s)
@@ -177,10 +177,13 @@ def SCF(L,Le,apha,phie):
 
 
 #Example
+#if __name__=='__main__':
+#    halo_mass,bias,r0=ACF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LATcat5.txt',z0=2.254)
+#    print halo_mass,bias,r0
 if __name__=='__main__':
     import pdb
     import matplotlib.pyplot as plt
-    L_lya,n,err,deta_L=LF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LAE-Mab5.txt',2.255,0.027,0.90915,0.009155,0.0095589,3955,32.7)
+    L_lya,n,err,deta_L=LF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LAE-Mab5.txt',2.255,0.027,9.091466606349206,0.09155,0.095589,3955,32.7)
     index=[len(L_lya)-1,len(L_lya)-2] 
     L_lya=np.delete(L_lya,index)
     n=np.delete(n,index)
