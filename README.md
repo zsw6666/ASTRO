@@ -1,5 +1,6 @@
 # test
 Statistic_Function.y:
+
    function d_pairs:used to counts the galaxy pairs in each distance bin(prepare for 2-d two-point correlation function)
    function r_pairs:used to counts the random pairs in each distance bin(prepare for 2-d two-point correlation function)
    function LF:used to statistical luminosity function
@@ -7,6 +8,7 @@ Statistic_Function.y:
    function ACF:estimate the angular correlation function and the host halo mass of the input target
   
 test_2.py:
+
    function d_pairs:old version 
    function r_pairs:old version
    function c_pairs:counts the the galaxy pairs within a certain distance
