@@ -1,208 +1,158 @@
 import os
 import pdb
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u,constants as const
 from astropy.cosmology import FlatLambdaCDM as FlatCDM
 
-
-def d_pairs(x,y):
-    '''
-    Thsis function is used to obtain 2-d two-point correlation function
-    (x,y) is the coordinate of each galaxy
-    '''
-    
-    
-    #this part is used to calculate distance between every galaxy pairs in data
-    x,y=np.array(x),np.array(y)
-    pointset=np.c_[x,y]
-    distanceset=np.array([])
-    while len(pointset)>1:
-        for i in range(1,len(pointset)):
-            l=np.linalg.norm(pointset[0]-pointset[i])
-            distanceset=np.append(distanceset,l)
-        pointset=np.delete(pointset,0,0) 
-    
-    #this part is used to statistic counts in each bin
-    counts,bins=np.histogram(distanceset,bins='auto')
-    return counts,bins
+cosmo=FlatCDM(H0=68*u.km/u.s/u.Mpc,Tcmb0=2.725*u.K,Om0=0.3)
 
 
-def r_pairs(x,y,bins):
+def IO(path,filename):
     '''
-    This function is the same with d_pairs but need one more parameter
-    bins: we need this parameter because we must calculate dd pairs,rr_pairs and dr_pairs in the same bin
+    This function is used to read data fro catalog
+    path: the location of the catalog
+    filename: name off the catalog
     '''
-    x,y=np.array(x),np.array(y)
-    pointset=np.c_[x,y]
-    distanceset=np.array([])
-    while len(pointset)>1:
-        for i in range(1,len(pointset)):
-            l=np.linalg.norm(pointset[0]-pointset[i])
-            distanceset=np.append(distanceset,l)
-        pointset=np.delete(pointset,0,0)
-    
-    counts,bins=np.histogram(distanceset,bins)
-    
-    return counts,bins
+
+    os.chdir(path)
+    data=np.hsplit(np.genfromtxt(filename,skip_header=1),8) 
+    coordinate=np.array([data[1],data[2]]) 
+    return coordinate
 
 
-def ACF(files,z0):
+def auto_pairs(x,y,z0,n):
     '''
-    This script is used to do galaxy clustering analysis by angualr correlation function
-    and estimate mass of host halo through comparing bias we calculate and bias from simulation
+    This function is used to statistic the number of galaxy-galaxy pairs in each bins
+    x: ra of each galaxy
+    y: dec of each galaxy
+    z0: redshift of quasar 
+    n: number of bins
     '''
-    import test_1
+    
+    x,y=np.array(x),np.array(y) 
+    distanceset=[] 
+    for i in range(len(x)):
+        x0,y0=x[i],y[i]
+        x1,y1=np.delete(x,i),np.delete(y,i) 
+        deta_x,deta_y=x1-x0,y1-y0
+        l=np.sqrt((deta_x**2)+(deta_y**2))
+        distanceset=np.append(distanceset,l) #for each galaxy we calculate the distances between it and the rest
+    counts,bins_a=Bin_Counts(distanceset,n,len(distanceset),True)#counts number of galaxy in each bin
+    bins=bins_a*cosmo.comoving_distance(z0).value 
+    return counts/len(x),bins,bins_a
+
+
+def cross_pairs(x1,y1,x2,y2,z0):
+    x1,y1,x2,y2=np.array(x1),np.array(y1),np.array(x2),np.array(y2)
+    pointset1,pointset2=np.c_[x1,y1],np.c_[x2,y2] 
+    distanceset=np.sqrt(np.sum((pointset2-pointset1)**2,1))  
+    return distanceset 
+
+
+def Bin_Counts(distanceset,binss,l,d_c):
+   
+    counts,bins=np.histogram(distanceset,binss,normed=d_c)
+    if d_c:
+        cd=np.cumsum(counts*np.diff(bins))*l  
+        return cd,bins
+    else:
+        return counts,bins
+
+
+
+def ACF(files,z0,n):
+    '''
+    This function is used to calculate angular correlation function
+    and estimate mass of host halo by comparing bias we calculate and bias from simulation
+
+    files:path+filesname
+    z0:redshift of the target
+    n: number of bins
+    '''
+   
     import halomod as hm
-    from scipy import integrate as ing
-    from scipy.optimize import curve_fit as cf
+    from scipy.special import hyp2f1 as ghf
+    from scipy.integrate import quad
+    from scipy.optimize import curve_fit as cf 
+    from scipy.optimize import leastsq as ltq
     
-    
-    #read data
-    ra_g,dec_g=np.hsplit(np.genfromtxt(files,delimiter=','),2)
-    ra_r,dec_r=np.random.uniform(low=np.min(ra_g),high=np.max(ra_g),size=(1,10*len(ra_g)))[0],np.random.uniform(low=np.min(dec_g),high=np.max(dec_g),size=(1,10*len(dec_g)))[0]
-    ra_r,dec_r=ra_r.reshape(len(ra_r),1),dec_r.reshape(len(dec_r),1)
-    ra_gr=np.vstack((ra_g,ra_r));dec_gr=np.vstack((dec_g,dec_r))
-    
-    
-    #counts number of pairs of galaxy-galaxy random-random and galaxy-random
-    pairs_gg,bins_gg,min_gg,max_gg=test_1.c_pairs(ra_g,dec_g,51)
-    pairs_rr,bins_rr,min_rr,max_rr=test_1.cr_pairs(ra_r,dec_r,50,min_gg,max_gg)
-    pairs_gr,bins_gr,min_gr,max_gr=test_1.cr_pairs(ra_gr,dec_gr,50,min_gg,max_gg)
-    pairs_gr=pairs_gr-pairs_gg-pairs_rr
-    pairs_gg,pairs_rr,pairs_gr=pairs_gg/float(pairs_gg[-1]),pairs_rr/float(pairs_rr[-1]),pairs_gr/float(pairs_gr[-1])
-    
-    
-    #calculate angular correlation function through estimator prompted by Landy and Szalay 1993
-    omga_theta=(pairs_gg+pairs_rr-2*pairs_gr)/pairs_rr
-    index_badvalue=np.where(omga_theta<=0)
-    bins=(bins_gg+bins_rr+bins_gr)/3.0
-    bins,omga_theta,pairs_gg,pairs_rr,pairs_gr=np.delete(bins,index_badvalue),np.delete(omga_theta,index_badvalue),np.delete(pairs_gg,index_badvalue),np.delete(pairs_rr,index_badvalue),np.delete(pairs_gr,index_badvalue)
-    omga_theta=omga_theta+pairs_rr*omga_theta/np.sum(pairs_rr)
-    
-    
-    #estimate the parameter of fit function(A is the parameter)
-    def func0(r,A):
-        return A*(r**-0.8)
-    A,pcov=cf(func0,bins,omga_theta);A=A[0]
-    A_std=np.sqrt(np.diag(pcov))
-    bins_fit=np.arange(np.min(bins),np.max(bins),(np.max(bins)-np.min(bins))/500.0)
-    omga_fit=func0(bins_fit,A)
-    
-    
-    #transform angular correlation function to spatial correlation function
-    c=299792458;det_z=0.027;H0=7e4;Hr=3.68;W0=0.3;sigma_8_z=0.311839;gamma=1.8;sigma_H0=770
-    def func(z):
-        return 1/((((1+z)**3)+(W0**-1)-1)**0.5)
-    inte=ing.fixed_quad(func,0,z0)
-    x=(c/H0)*(W0**-0.5)*inte[0]
-    P=(W0**0.5)*(((1+z0)**3)+(1/W0)-1)**0.5
-    r0=((c*A*det_z)/(H0*Hr*(x**-0.8)*P))**(1.0/1.8)
-    
-    
-    #calculate bias with correlation length
-    J=72/((3-gamma)*(4-gamma)*(6-gamma)*(2**gamma))
-    sigma_gal_8=np.sqrt(J*(r0*0.7/8)**1.8);b=sigma_gal_8/sigma_8_z
-    dA=A_std[0]/(gamma*A)
-    dH0=-sigma_H0/H0
-    f=func(z0)
-    dz=det_z*(((3*(1+z0)**2)/(2*gamma*(1.0/f)**2))-(1.0-gamma)*(1.0/f)/(gamma*inte[0]))
-    E_r0=np.sqrt((dA**2)+(dH0**2)+(dz**2))
-    sigma_r0=E_r0*r0
-    
-    
-    #compare bias calculated above with bias generated by simulation and estimate the host halo mass
-    halo=hm.HaloModel(z=z0,bias_model='ST99')
-    halo_mass=np.mean(halo.m[(halo.bias>b-0.01*b)&(halo.bias<b+0.01*b)])
-    
+    #read data and create uniform field
+    coordinate=IO(files[0],files[1])
+    ra_g,dec_g=coordinate[0][1:]*np.pi/180.,coordinate[1][1:]*np.pi/180.
+    ra_q,dec_q=coordinate[0][0]*np.pi/180.,coordinate[1][0]*np.pi/180.
+    ra_r=np.random.uniform(low=np.min(ra_g),high=np.max(ra_g),size=(1,len(ra_g)))[0]
+    dec_r=np.random.uniform(low=np.min(dec_g),high=np.max(dec_g),size=(1,len(dec_g)))[0] 
+   
 
-    return halo_mass,b,r0
+    #calculate cumulative galaxy-galaxy pairs and random-random pairs
+    pairs_gg,bins_gg,bins_a=auto_pairs(ra_g,dec_g,z0,10)
+    pairs_rr,bins_rr,bins_a=auto_pairs(ra_r,dec_r,z0,bins_a)
+    A=np.pi*bins_gg[1:]**2
+    ro_gg,ro_rr=pairs_gg/A,pairs_rr/A    
 
 
-def LF(file_name,z,deta_z,sigma,deta_apha,deta_sigma,lamda_NB,deta_lamda_NB):
-    '''
-    This function is used to obtain the galaxy luminosity function
-    file_name: the file's name(include path) which contains data 
-    z: the redshift of the target
-    deta_z: length of redshift interval
-    sigma: DEC of the target
-    deta_apha,deta_sigma: length of angular interval
-    lamda_NB: effective wavelength of the narrowband filter
-    deta_lamda_NB: FWHM of the emission line
-
-    we use z deta_z sigma,deta_sigma,deta_apha to calculate the volume of the field which is used to calculate the number density
-    lamda_NB and deta_lamda_NB are used to calculate the emission's flux
-
-    '''
-
-
-    #define some cosntant and convert some parameter to proper units
-    cosmo=FlatCDM(H0=68*u.km/u.s/u.Mpc,Tcmb0=2.725*u.K,Om0=0.3)
-    c=const.c;dl=cosmo.luminosity_distance(z);dl1=cosmo.comoving_distance(z);dl2=cosmo.comoving_distance(z+deta_z)
-    dl_a=cosmo.angular_diameter_distance(z);lamda_NB=lamda_NB*u.AA;deta_lamda_NB=deta_lamda_NB*u.AA;sigma=(sigma*u.deg).to(u.rad)
-    deta_apha=(deta_apha*u.deg).to(u.rad);deta_sigma=(deta_sigma*u.deg).to(u.rad);deta_DL_c=dl2-dl1
-    deta_v_NB=(c/lamda_NB**2)*deta_lamda_NB
+    #because there is statistical bias when counts pairs for different points for both galaxy-galaxy pairs and
+    #random-random pairs,so,we divide ro_gg with ro_fit instead of ro_rr to get rid of this bias
+    index_auto=np.where(bins_gg>=5)
+    fit_func=np.polyfit(bins_rr[index_auto],ro_rr[(index_auto[0]-1)],1)
+    ro_fit=fit_func[0]*bins_rr[1:]+fit_func[1]  
+    index_auto=np.where(bins_gg<=4.5)
+    bins_auto,ro_gg,ro_fit=bins_gg[(index_auto[0]+1)],ro_gg[index_auto],ro_fit[index_auto]
+    w_auto=(ro_gg/ro_fit)-1 
     
     
-    #read the file which contains the magnitude data
-    data=np.genfromtxt(file_name,delimiter=',')
-    m_NB=data[:,0];m_g=data[:,1]
+    #calculate cumulative galaxy-qso pairs and qso-random pairs
+    pairs_gq,bins_gq,bins_a=cross_pairs(ra_q,dec_q,ra_g,dec_g,z0,10) 
+    A2=np.pi*bins_gq**2
+    ro_gq=pairs_gq/A2
+    ro_rq=len(ra_g)/A0
+    index_cross=np.where(bins_gq<=2.2)
+    bins_cross,ro_gq=bins_gq[index_cross],ro_gq[index_cross]
+    w_cross=(ro_gq/ro_rq)-1 
+   
+   
+
+    #define the fit function and fit the data
+    def fitfunc(R,r0):
+        gamma,deta_z=2.4,18
+        a=((r0/R)**gamma)*ghf(0.5,0.5*gamma,1.5,-(deta_z/R)**2)
+        return((r0/R)**gamma)*ghf(0.5,0.5*gamma,1.5,-(deta_z/R)**2)   
+    def err(p,x,y):
+        return fitfunc(x,p)-y
+    corr_length_cross,pocov=cf(fitfunc,bins_cross,w_cross) 
+    corr_length_auto=ltq(err,5,args=(bins_auto,w_auto))[0]    
+  
     
-
-    #calculate the luminosity of each galaxy,the equation you can found here:
-    #https://github.com/zsw6666/test/blob/master/Equation_F_LF.jpg
-    F_Lya=(3631*u.Jy)*deta_v_NB*((10**(m_NB/-2.5))-(10**(m_g/-2.5)))
-    L_Lya=(F_Lya*4*np.pi*dl**2).to(u.erg/u.s)
     
-    
-    #statistic counts in each bin and convert the counts to number density
-    [counts,bins]=np.histogram(L_Lya,bins='auto') 
-    Vmax=(dl_a**2)*np.cos(sigma)*deta_apha*deta_sigma*deta_DL_c
-    deta_L=bins[1]-bins[0]
-    counts=counts/Vmax 
-    bins=np.delete(bins,np.append(np.where(counts==0.),0))*(u.erg/u.s)
-    counts=np.delete(counts,np.where(counts==0.))
-
-    
-    errorbar=np.sqrt(counts)*(1/np.sqrt(Vmax))
-    
-    return bins.value,counts.value,errorbar.value,deta_L
-
-def SCF(L,Le,apha,phie):
-    '''
-    Schechter luminosity function which is used to fit data
-    Le,apha,phie: the parameter(phie is the normalization)
-    L: the variable
-    '''
-
-    phi=(1/Le)*phie*((L/Le)**apha)*np.exp(-L/Le)
-    return phi
-
-
-#Example
-#if __name__=='__main__':
-#    halo_mass,bias,r0=ACF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LATcat5.txt',z0=2.254)
-#    print halo_mass,bias,r0
-if __name__=='__main__':
-    import pdb
-    import matplotlib.pyplot as plt
-    L_lya,n,err,deta_L=LF('/home/wu/ASTRO/GCA/data/Flashlight_catalog/Images (5)/LAE-Mab5.txt',2.255,0.027,9.091466606349206,0.09155,0.095589,3955,32.7)
-    index=[len(L_lya)-1,len(L_lya)-2] 
-    L_lya=np.delete(L_lya,index)
-    n=np.delete(n,index)
-    err=np.delete(err,index) 
-    L_fit=np.arange(min(L_lya),max(L_lya)+0.5*max(L_lya),(max(L_lya)-min(L_lya))/500.0)
-    Le=10**42.33;apha=-1.65;phie=10**(-2.86)
-    N_fit=SCF(L_fit,Le,apha,phie)*deta_L
-    #pdb.set_trace()
-    plt.figure(1)
-    ax=plt.gca()
-    ax.set_yscale('log')
-    ax.set_xscale('log')
-    plt.title('Luminosity Function')
-    plt.xlabel('Luminosity erg/s')
-    plt.ylabel('n Mpc-3')
-    plt.xlim(min(L_lya),max(L_lya))
-    plt.ylim(min(N_fit),max(n))
-    plt.errorbar(L_lya,n,fmt='o',yerr=err)
-    plt.plot(L_fit,N_fit,c='r')
+    plt.figure('cross corr 1')
+    plt.title('GQ density-radius relation')
+    plt.xlabel('r Mpc')
+    plt.ylabel('ro Mpc-2')
+    plt.scatter(bins_cross,ro_gq,label='GQ')
+    plt.scatter(bins_cross,np.full((1,len(bins_cross)),ro_rq),c='g',label='RQ')
+    plt.legend()
+    plt.figure('cross corr 2')
+    plt.title('GQ cross correlation function')
+    plt.xlabel('r Mpc')
+    plt.ylabel('wp')
+    plt.scatter(bins_cross,w_cross)
+    plt.plot(bins_cross,fitfunc(bins_cross,*corr_length_cross),c='r')
+    plt.figure('auto corr 1')
+    plt.title('GG density-radius relation')
+    plt.xlabel('r Mpc')
+    plt.ylabel('ro Mpc-2')
+    plt.scatter(bins_auto,ro_gg,label='GG')
+    plt.scatter(bins_auto,ro_rr[index_auto],c='r',label='RR')
+    plt.scatter(bins_auto,ro_fit,c='g',label='RR_FIT')
+    plt.legend()
+    plt.figure('auto corr 2')
+    plt.title('GG auto correlation function')
+    plt.xlabel('r Mpc')
+    plt.ylabel('wp')
+    plt.scatter(bins_auto,w_auto)
+    plt.plot(bins_auto,fitfunc(bins_auto,corr_length_auto),c='r')
     plt.show()
+
+#if __name__=='__main__':
+#    halo_mass,bias,r0=ACF(['/home/wu/ASTRO/GCA/Flashlight_catalog/dense','SDSSJ0938+0905_LAE_cat.txt'],z0=2.254,n=20) 
