@@ -1,4 +1,4 @@
-# test
+# ASTRO
 Statistic_Function.y:
 
    function d_pairs:used to counts the galaxy pairs in each distance bin(prepare for 2-d two-point correlation function)
